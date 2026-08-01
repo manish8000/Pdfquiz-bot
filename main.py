@@ -8,8 +8,9 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from google import genai
 
 # ---- API KEYS ----
-TELEGRAM_BOT_TOKEN = "अपनी_TELEGRAM_BOT_TOKEN_यहाँ_डाले"
-GEMINI_API_KEY = "अपनी_GEMINI_API_KEY_यहाँ_डाले"
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 

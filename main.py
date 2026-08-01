@@ -1,16 +1,30 @@
 import os
 import json
+import threading
+from flask import Flask
 from pypdf import PdfReader
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from google import genai
 
-# ---- अपनी KEYS यहाँ डालें ----
+# ---- API KEYS ----
 TELEGRAM_BOT_TOKEN = "अपनी_TELEGRAM_BOT_TOKEN_यहाँ_डाले"
 GEMINI_API_KEY = "अपनी_GEMINI_API_KEY_यहाँ_डाले"
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
+# Web Server Render को एक्टिव रखने के लिए
+app_web = Flask(__name__)
+
+@app_web.route('/')
+def home():
+    return "Bot is Alive!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app_web.run(host='0.0.0.0', port=port)
+
+# Telegram Bot Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("नमस्ते! मुझे कोई भी PDF फाइल भेजें, मैं उसमें से Quiz/MCQ तैयार कर दूंगा।")
 
@@ -81,6 +95,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(file_path)
 
 def main():
+    # वेब सर्वर को बैकग्राउंड में चालू करें
+    threading.Thread(target=run_flask, daemon=True).start()
+    
+    # टेलीग्राम बॉट चलाएं
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))

@@ -5,29 +5,32 @@ from flask import Flask
 from pypdf import PdfReader
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from google import genai
+from openai import OpenAI
 
-# ---- API KEYS ----
+# Environment Variables से Keys लेना
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GROK_API_KEY = os.environ.get("GROK_API_KEY")
 
+# Grok (xAI) Client Setup
+client = OpenAI(
+    api_key=GROK_API_KEY,
+    base_url="https://api.x.ai/v1",
+)
 
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-# Web Server Render को एक्टिव रखने के लिए
+# Koyeb Health Check Server (Flask)
 app_web = Flask(__name__)
 
 @app_web.route('/')
 def home():
-    return "Bot is Alive!"
+    return "Bot is Running Live with Grok on Koyeb!"
 
 def run_flask():
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8000))
     app_web.run(host='0.0.0.0', port=port)
 
 # Telegram Bot Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("नमस्ते! मुझे कोई भी PDF फाइल भेजें, मैं उसमें से Quiz/MCQ तैयार कर दूंगा।")
+    await update.message.reply_text("नमस्ते! मुझे कोई भी PDF फाइल भेजें, मैं Grok AI की मदद से उसमें से Quiz/MCQ तैयार कर दूंगा।")
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     document = update.message.document
@@ -51,7 +54,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(file_path)
             return
 
-        await status_msg.edit_text("🤖 AI क्विज़ तैयार कर रहा है...")
+        await status_msg.edit_text("🤖 Grok AI क्विज़ तैयार कर रहा है...")
 
         prompt = f"""
         Extract 3 multiple choice questions from the following text.
@@ -69,12 +72,18 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         {text[:3000]}
         """
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
+        # Grok AI API Call
+        response = client.chat.completions.create(
+            model="grok-beta",
+            messages=[
+                {"role": "system", "content": "You are a helpful quiz generator. Always respond in pure JSON array format."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2
         )
 
-        clean_json = response.text.strip().replace("```json", "").replace("```", "")
+        response_text = response.choices[0].message.content
+        clean_json = response_text.strip().replace("```json", "").replace("```", "")
         quiz_data = json.loads(clean_json)
 
         await status_msg.edit_text("✅ क्विज़ तैयार है!")
@@ -96,14 +105,14 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(file_path)
 
 def main():
-    # वेब सर्वर को बैकग्राउंड में चालू करें
+    # Flask Server बैकग्राउंड में चालू करें
     threading.Thread(target=run_flask, daemon=True).start()
     
-    # टेलीग्राम बॉट चलाएं
+    # Telegram Bot Start करें
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    print("Bot is running...")
+    print("Bot is running with Grok...")
     app.run_polling()
 
 if __name__ == "__main__":

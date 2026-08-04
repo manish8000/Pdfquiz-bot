@@ -1,5 +1,5 @@
 python-telegram-bot
 pypdf
-google-genai
+openai
 flask
 gunicorn
